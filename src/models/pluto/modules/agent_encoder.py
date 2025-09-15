@@ -13,7 +13,7 @@ class AgentEncoder(nn.Module):
         dim=128,
         hist_steps=21,
         use_ego_history=False,
-        drop_path=0.2,
+        drop_path=0.2,  # 随机深度丢弃，它表示在训练时，每个残差块（或特定层）被跳过的概率。
         state_attn_encoder=True,
         state_dropout=0.75,
     ) -> None:
@@ -28,8 +28,10 @@ class AgentEncoder(nn.Module):
             in_chans=history_channel, embed_dim=dim // 4, drop_path_rate=drop_path
         )
 
+        # 如果不用历史轨迹，映射到统一维度
         if not use_ego_history:
             if not self.state_attn_encoder:
+                # 输入是自车状态维度，两个隐藏层维度都是dim，后面接一个归一化层
                 self.ego_state_emb = build_mlp(state_channel, [dim] * 2, norm="bn")
             else:
                 self.ego_state_emb = StateAttentionEncoder(
@@ -122,7 +124,7 @@ class StateAttentionEncoder(nn.Module):
             )
             dropout_tokens = (
                 torch.rand((x_embed.shape[0], self.state_channel - 3), device=x.device)
-                < self.state_dropout
+                < self.state_dropout  # 生成一个与状态维度-3相同大小的随机布尔掩码。每个维度有75%的概率被丢弃/屏蔽。
             )
             key_padding_mask = torch.concat([visible_tokens, dropout_tokens], dim=1)
         else:
